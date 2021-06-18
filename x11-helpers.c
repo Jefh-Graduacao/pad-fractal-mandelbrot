@@ -2,20 +2,20 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-// static Display *display;
-// static Window window;
-// static XImage *imagem;
-// static Atom wmDeleteMessage;
-// static GC gc;
+static Display *display;
+static Window window;
+static XImage *imagem;
+static GC gc;
+static Atom wmDeleteMessage;
 
-static void exit_x11(XImage *imagem, Display *display, Window window)
+static void finalizar_x11(void)
 {
     XDestroyImage(imagem);
     XDestroyWindow(display, window);
     XCloseDisplay(display);
 }
 
-static void inicializar_x111(int size, Display *display, Window window, XImage *imagem, Atom wmDeleteMessage, GC gc)
+static void inicializar_x11(int tamanhoImagem)
 {
     int bytes_per_pixel;
 
@@ -30,12 +30,12 @@ static void inicializar_x111(int size, Display *display, Window window, XImage *
     unsigned long pixelPreto = BlackPixel(display, DefaultScreen(display));
 
     // Criação da janela
-    window = XCreateSimpleWindow(display, DefaultRootWindow(display), 0, 0, size, size, 0, pixelPreto, pixelBranco);
+    window = XCreateSimpleWindow(display, DefaultRootWindow(display), 0, 0, tamanhoImagem, tamanhoImagem, 0, pixelPreto, pixelBranco);
 
-    /* We want to be notified when the window appears */
+    // Solicita notificação quando a tela aparecer
     XSelectInput(display, window, StructureNotifyMask);
 
-    /* Make it appear */
+    // Mostra a tela
     XMapWindow(display, window);
 
     // Aguarda a tela ser mostrada
@@ -54,7 +54,6 @@ static void inicializar_x111(int size, Display *display, Window window, XImage *
     if (st)
         XSetWMName(display, window, &tp);
 
-    /* Wait for the MapNotify event */
     XFlush(display);
 
     int ii, jj;
@@ -62,16 +61,14 @@ static void inicializar_x111(int size, Display *display, Window window, XImage *
     Visual *visual = DefaultVisual(display, DefaultScreen(display));
     int total;
 
-    /* Determine total bytes needed for image */
     ii = 1;
     jj = (depth - 1) >> 2;
     while (jj >>= 1)
         ii <<= 1;
 
-    /* Pad the scanline to a multiple of 4 bytes */
-    total = size * ii;
+    total = tamanhoImagem * ii;
     total = (total + 3) & ~3;
-    total *= size;
+    total *= tamanhoImagem;
     bytes_per_pixel = ii;
 
     if (bytes_per_pixel != 4)
@@ -79,22 +76,52 @@ static void inicializar_x111(int size, Display *display, Window window, XImage *
         printf("Need 32bit colour screen!");
     }
 
-    /* Make bitmap */
-    imagem = XCreateImage(display, visual, depth, ZPixmap, 0, malloc(total), size, size, 32, 0);
+    imagem = XCreateImage(display, visual, depth, ZPixmap, 0, malloc(total), tamanhoImagem, tamanhoImagem, 32, 0);
 
-    /* Init GC */
     gc = XCreateGC(display, window, 0, NULL);
     XSetForeground(display, gc, pixelPreto);
 
     if (bytes_per_pixel != 4)
     {
         printf("Need 32bit colour screen!\n");
-        exit_x11(imagem, display, window);
+        finalizar_x11();
         exit(0);
     }
 
     XSelectInput(display, window, ExposureMask | KeyPressMask | StructureNotifyMask);
-
+    
     wmDeleteMessage = XInternAtom(display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(display, window, &wmDeleteMessage, 1);
+}
+
+void loop_interface_grafica(int tamanhoImagem)
+{
+    while (1)
+    {
+        XEvent event;
+        KeySym key;
+
+        XNextEvent(display, &event);
+
+        if ((event.type == Expose) && !event.xexpose.count)
+        {
+            XPutImage(display, window, gc, imagem, 0, 0, 0, 0, tamanhoImagem, tamanhoImagem);
+        }
+        
+        if (event.type == KeyPress)
+        {
+            char key_buffer[128];
+            XLookupString(&event.xkey, key_buffer, sizeof key_buffer, &key, NULL);
+            
+            if (key == XK_Escape)
+            {
+                break;
+            }
+        }
+
+        if ((event.type == ClientMessage) && ((Atom)event.xclient.data.l[0] == wmDeleteMessage))
+        {
+            break;
+        }
+    }
 }

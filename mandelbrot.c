@@ -49,13 +49,11 @@ static double xmax = 1.0;
 static double ymin = -1.5;
 static double ymax = 1.5;
 
-#define ASIZE 1000
-
 static void * display_double(void *args)
 {
     struct ArgsCalculo *argsCalculo = (struct ArgsCalculo *)args;
 
-    int size = ASIZE;
+    int size = argsCalculo->tamanhoImagem;
 
     double xscal = (xmax - xmin) / size;
     double yscal = (ymax - ymin) / size;

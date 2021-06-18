@@ -2,10 +2,11 @@
 
 typedef struct ArgsCalculo
 {
+    int tamanhoImagem;
     int tamanhoDivisao;
     int parteX;
     int xInicial;
-    int xFinal;    
+    int xFinal;
     XImage *imagem;
 } ArgsCalculo;
 

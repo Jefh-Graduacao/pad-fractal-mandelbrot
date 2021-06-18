@@ -15,3 +15,10 @@ typedef struct ArgsDisplay
     int y;
     int cor;
 } ArgsDisplay;
+
+typedef struct result_data {
+  int xi;
+  int xf;
+  int yi;
+  int yf;
+} result_data;

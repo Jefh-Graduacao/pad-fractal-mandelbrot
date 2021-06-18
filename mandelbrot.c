@@ -70,7 +70,8 @@ static void * display_double(void *args)
 
             unsigned counts = mandel_double(cr, ci);
 
-            ((unsigned *)imagem2->data)[x + y * size] = cols[counts];
+            int indicePixel = x + y * size;
+            ((unsigned *)imagem2->data)[indicePixel] = cols[counts];
         }
     }
 

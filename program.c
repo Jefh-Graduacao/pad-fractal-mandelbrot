@@ -17,14 +17,17 @@
 static Display *display;
 static Window window;
 static XImage *imagem;
-static Atom wmDeleteMessage;
 static GC gc;
+static Atom wmDeleteMessage;
 
 static fila *fila_tarefas;
-static fila *fila_display;
+static fila *fila_result;
 
 static pthread_mutex_t *mutex;
 static pthread_mutex_t *mutex_display;
+static pthread_mutex_t *mutex_fila_result;
+
+static pthread_cond_t *condicaoMtoLoca;
 
 static void exit_x11(void)
 {
@@ -107,41 +110,9 @@ static void inicializar_x11(int size)
     }
 
     XSelectInput(display, window, ExposureMask | KeyPressMask | StructureNotifyMask);
-
+    
     wmDeleteMessage = XInternAtom(display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(display, window, &wmDeleteMessage, 1);
-}
-
-static void * display_double2(void *args)
-{
-    struct ArgsCalculo *argsCalculo = (struct ArgsCalculo *)args;
-
-    int size = ASIZE;
-
-    double xscal = (xmax - xmin) / size;
-    double yscal = (ymax - ymin) / size;
-
-    XImage *imagem2 = argsCalculo->imagem;
-    for (int y = 0; y < size; y++)
-    {
-        for (int x = argsCalculo->xInicial; x < argsCalculo->xFinal; x++)
-        {
-            double cr = xmin + x * xscal;
-            double ci = ymin + y * yscal;
-
-            unsigned int counts = mandel_double(cr, ci);
-
-            ((unsigned *)imagem2->data)[x + y * size] = cols[counts];
-        }
-    }
-
-    pthread_mutex_lock(mutex_display);
-    XPutImage(display, window, gc, imagem2, 0, 0, 0, 0, 1000, 1000);
-    XFlush(display);
-    pthread_mutex_unlock(mutex_display);
-
-    printf("Calculado eixo X (%d-%d) pela thread %d\n", argsCalculo->xInicial, argsCalculo->xFinal, (int)pthread_self());
-    free(argsCalculo);
 }
 
 void * thread_callback(void * args)
@@ -159,13 +130,55 @@ void * thread_callback(void * args)
         fila_pop(fila_tarefas, args);
         pthread_mutex_unlock(mutex);
 
-        display_double2(args);
+        result_data *result = malloc(sizeof(result_data));
+        result->xi = args->xInicial;
+        result->xf = args->xFinal;
+        result->yi = 0;
+        result->yf = 1000;
+
+        display_double(args);
+
+        pthread_mutex_lock(mutex_fila_result);
+        fila_push(fila_result, result);
+        pthread_mutex_unlock(mutex_fila_result);
+        pthread_cond_signal(condicaoMtoLoca);
     }
 }
 
-void * display_thread() 
+static void * consumer(void *data) 
 {
+    int quantidadeTarefas = 50;
+    int tarefasRealizas = 0;
 
+    while (1) 
+    {
+        if (tarefasRealizas == quantidadeTarefas) 
+        {
+            XFlush(display);
+            return NULL;
+        }
+
+        pthread_mutex_lock(mutex_fila_result);
+        if (fila_result->is_empty) {            
+            pthread_cond_wait(condicaoMtoLoca, mutex_fila_result);
+            pthread_mutex_unlock(mutex_fila_result);
+            continue;
+        }
+
+        result_data *result = malloc(sizeof(result_data));        
+        fila_pop(fila_result, result);
+        result->yf = 1000;
+
+        XPutImage(
+            display, window, gc, imagem,
+            result->xi, result->yi, result->xi, result->yi, (result->xf - result->xi + 1), (result->yf - result->yi + 1)
+        );
+
+        pthread_mutex_unlock(mutex_fila_result);
+        
+        tarefasRealizas++;
+        free(result);
+    }
 }
 
 int main(void)
@@ -175,13 +188,18 @@ int main(void)
 
     inicializar_cores();
 
-    fila_display = inicializar_fila(1000, sizeof(ArgsDisplay));
+    fila_result = inicializar_fila(100000, sizeof(ArgsDisplay));
 
     mutex = (pthread_mutex_t *) malloc(sizeof (pthread_mutex_t));
     mutex_display = (pthread_mutex_t *) malloc(sizeof (pthread_mutex_t));
+    mutex_fila_result = (pthread_mutex_t *) malloc(sizeof (pthread_mutex_t));
+
+    condicaoMtoLoca = (pthread_cond_t *) malloc(sizeof (pthread_cond_t));
+    pthread_cond_init(condicaoMtoLoca, NULL);
+
     pthread_mutex_init(mutex, NULL);
 
-    int quantidadeTarefas = 200;
+    int quantidadeTarefas = 50;
     fila_tarefas = inicializar_fila(quantidadeTarefas, sizeof(ArgsCalculo));
 
     int quantidadePartes = quantidadeTarefas;
@@ -205,7 +223,7 @@ int main(void)
         fila_push(fila_tarefas, threadArgs);
     }
 
-    int qtdThreads = 50;
+    int qtdThreads = 10;
     pthread_t idsThreads[qtdThreads];
     for (int i = 0; i < qtdThreads; i++) {
         pthread_t idThread;
@@ -215,6 +233,9 @@ int main(void)
         printf("Thread %d criada\n", (int)idThread);        
     }
     printf("\n");
+    
+    pthread_t consumerThreadId;
+    pthread_create(&consumerThreadId, NULL, consumer, NULL);
 
     for (int i = 0; i < qtdThreads; i++) {
         pthread_join(idsThreads[i], NULL);
@@ -222,14 +243,13 @@ int main(void)
     }
     printf("\n");
     
+    pthread_join(consumerThreadId, NULL);
+
     gettimeofday(&tempoFimExecucao, 0);
     long segundos = tempoFimExecucao.tv_sec - tempoInicioExecucao.tv_sec;
     long milissegundos = tempoFimExecucao.tv_usec - tempoInicioExecucao.tv_usec;
     double tempoDecorrido = segundos + milissegundos*1e-6;
     printf("\nLevou %f segundos para calcular\n", tempoDecorrido);
-
-    // XPutImage(display, window, gc, imagem, 0, 0, 0, 0, larguraImagem, 1000);
-    // XFlush(display);
 
     while (1)
     {
@@ -245,14 +265,15 @@ int main(void)
             XPutImage(display, window, gc, imagem, 0, 0, 0, 0, ASIZE, ASIZE);
         }
 
-        /* Press 'q' to quit */
-        if ((event.type == KeyPress) && XLookupString(&event.xkey, text, 255, &key, 0) == 1)
+        if (event.type = KeyPress)
         {
-            if (text[0] == 'q')
+            char key_buffer[128];
+            XLookupString(&event.xkey, key_buffer, sizeof key_buffer, &key, NULL);
+
+            if (key == XK_Escape)
                 break;
         }
 
-        /* Or simply close the window */
         if ((event.type == ClientMessage) && ((Atom)event.xclient.data.l[0] == wmDeleteMessage))
         {
             break;

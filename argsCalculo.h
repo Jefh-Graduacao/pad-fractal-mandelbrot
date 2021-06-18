@@ -1,6 +1,6 @@
 #include <X11/Xlib.h>
 
-struct ArgsCalculo
+typedef struct ArgsCalculo
 {
     int tamanhoDivisao;
     int parteX;
@@ -8,3 +8,10 @@ struct ArgsCalculo
     int xFinal;    
     XImage *imagem;
 } ArgsCalculo;
+
+typedef struct ArgsDisplay
+{
+    int x;
+    int y;
+    int cor;
+} ArgsDisplay;

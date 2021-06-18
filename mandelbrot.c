@@ -5,7 +5,7 @@
 
 
 #define MAX_ITER (1 << 15)
-static unsigned cols[MAX_ITER + 1];
+static unsigned int cols[MAX_ITER + 1];
 
 static void inicializar_cores(void)
 {
@@ -74,6 +74,6 @@ static void * display_double(void *args)
         }
     }
 
-    printf("Fim da thread %d\n", (int)pthread_self());
+    printf("Calculado eixo X (%d-%d) pela thread %d\n", argsCalculo->xInicial, argsCalculo->xFinal, (int)pthread_self());
     free(argsCalculo);
 }

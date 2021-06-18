@@ -94,6 +94,14 @@ static void inicializar_x11(int tamanhoImagem)
     XSetWMProtocols(display, window, &wmDeleteMessage, 1);
 }
 
+static void adicionar_imagem_x11(int src_x, int src_y, int dest_x, int dest_y, int width, int height)
+{
+    XPutImage(
+        display, window, gc, imagem,
+        src_x, src_y, dest_x, dest_y, width, height
+    );
+}
+
 void loop_interface_grafica(int tamanhoImagem)
 {
     while (1)

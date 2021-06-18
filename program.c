@@ -88,7 +88,7 @@ void * thread_consumidora()
     }
 }
 
-int main(void)
+int main()
 {
     int tamanhoImagem = 1000;
     int qtdThreads = 100;
@@ -106,24 +106,24 @@ int main(void)
     mutex_buffer_display = (pthread_mutex_t *) malloc(sizeof (pthread_mutex_t));
 
     condicao_buffer_display = (pthread_cond_t *) malloc(sizeof (pthread_cond_t));
-    pthread_cond_init(condicao_buffer_display, NULL);
 
     pthread_mutex_init(mutex_buffer_tarefas, NULL);
+    pthread_mutex_init(mutex_buffer_tarefas, NULL);
+    pthread_cond_init(condicao_buffer_display, NULL);
 
-    int quantidadePartes = quantidadeDivisoes;
-    int tamanhoPorParte = tamanhoImagem / quantidadePartes;
+    int tamanhoPorParte = tamanhoImagem / quantidadeDivisoes;
 
-    for (int y = 0; y < quantidadePartes; y++) 
+    for (int yInicial = 0; yInicial < tamanhoImagem; yInicial += tamanhoPorParte) 
     {
-        for (int x = 0; x < quantidadePartes; x++) 
+        for (int xInicial = 0; xInicial < tamanhoImagem; xInicial += tamanhoPorParte) 
         {
             DadosCalculo *argsCalculo = (DadosCalculo *)malloc(sizeof(DadosCalculo));
             
-            argsCalculo->pontoInicial.x = x * tamanhoPorParte;
-            argsCalculo->pontoInicial.y = y * tamanhoPorParte;
+            argsCalculo->pontoInicial.x = xInicial;
+            argsCalculo->pontoInicial.y = yInicial;
 
-            argsCalculo->pontoFinal.x = (x * tamanhoPorParte) + tamanhoPorParte;
-            argsCalculo->pontoFinal.y = (y * tamanhoPorParte) + tamanhoPorParte;
+            argsCalculo->pontoFinal.x = xInicial + tamanhoPorParte;
+            argsCalculo->pontoFinal.y = yInicial + tamanhoPorParte;
 
             argsCalculo->imagem = imagem;
             argsCalculo->tamanhoImagem = tamanhoImagem;

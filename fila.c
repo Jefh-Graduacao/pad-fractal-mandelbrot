@@ -8,7 +8,7 @@ typedef struct {
   int head, tail;
 } fila;
 
-fila *inicializar_fila (unsigned tamanho, long item_size)
+fila *inicializar_fila (unsigned int tamanho, long item_size)
 {
     fila *q = (fila *)malloc(sizeof (fila));
     q->item = malloc(sizeof(item_size) * tamanho);

@@ -23,26 +23,26 @@ static pthread_mutex_t *mutex_buffer_display;
 
 static pthread_cond_t *condicao_buffer_display;
 
-void * thread_callback(void * args)
+void * thread_produtora()
 {
     while (1) 
     {
         pthread_mutex_lock(mutex_buffer_tarefas);
 
-        if (buffer_tarefas->esta_vazia) {
+        if (buffer_tarefas->esta_vazia) 
+        {
             pthread_mutex_unlock(mutex_buffer_tarefas);
             break;
         }
 
-        ArgsCalculo *args = malloc(sizeof(ArgsCalculo));
+        DadosCalculo *args = malloc(sizeof(DadosCalculo));
         fila_pop(buffer_tarefas, args);
         pthread_mutex_unlock(mutex_buffer_tarefas);
 
-        result_data *result = malloc(sizeof(result_data));
-        result->xi = args->xInicial;
-        result->xf = args->xFinal;
-        result->yi = 0;
-        result->yf = 1000;
+        DadosDisplay *result = malloc(sizeof(DadosDisplay));
+        
+        result->pontoInicial = args->pontoInicial;
+        result->pontoFinal = args->pontoFinal;
 
         display_double(args);
 
@@ -53,32 +53,32 @@ void * thread_callback(void * args)
     }
 }
 
-static void * consumer(void *data) 
+void * thread_consumidora() 
 {
-    int quantidadeTarefas = 50;
     int tarefasRealizas = 0;
 
     while (1) 
     {
-        if (tarefasRealizas == quantidadeTarefas) 
+        if (tarefasRealizas == buffer_display->capacidade) 
         {
             XFlush(display);
             return NULL;
         }
 
         pthread_mutex_lock(mutex_buffer_display);
-        if (buffer_display->esta_vazia) {            
+        if (buffer_display->esta_vazia) 
+        {            
             pthread_cond_wait(condicao_buffer_display, mutex_buffer_display);
             pthread_mutex_unlock(mutex_buffer_display);
             continue;
         }
 
-        result_data *result = malloc(sizeof(result_data));        
+        DadosDisplay *result = malloc(sizeof(DadosDisplay));        
         fila_pop(buffer_display, result);
-        result->yf = 1000;
 
         adicionar_imagem_x11(
-            result->xi, result->yi, result->xi, result->yi, (result->xf - result->xi + 1), (result->yf - result->yi + 1)
+            result->pontoInicial.x, result->pontoInicial.y, result->pontoInicial.x, result->pontoInicial.y, 
+            (result->pontoFinal.x - result->pontoInicial.x + 1), (result->pontoFinal.y - result->pontoInicial.y + 1)
         );
 
         pthread_mutex_unlock(mutex_buffer_display);
@@ -91,15 +91,16 @@ static void * consumer(void *data)
 int main(void)
 {
     int tamanhoImagem = 1000;
-    int quantidadeTarefas = 50;
     int qtdThreads = 100;
+    int quantidadeDivisoes = 10;
+    int quantidadeTarefas = quantidadeDivisoes * quantidadeDivisoes;
 
     inicializar_x11(tamanhoImagem);
 
     inicializar_cores();
 
-    buffer_tarefas = inicializar_fila(quantidadeTarefas, sizeof(ArgsCalculo));
-    buffer_display = inicializar_fila(quantidadeTarefas, sizeof(ArgsDisplay));
+    buffer_tarefas = inicializar_fila(quantidadeTarefas, sizeof(DadosCalculo));
+    buffer_display = inicializar_fila(quantidadeTarefas, sizeof(DadosDisplay));
 
     mutex_buffer_tarefas = (pthread_mutex_t *) malloc(sizeof (pthread_mutex_t));
     mutex_buffer_display = (pthread_mutex_t *) malloc(sizeof (pthread_mutex_t));
@@ -109,32 +110,35 @@ int main(void)
 
     pthread_mutex_init(mutex_buffer_tarefas, NULL);
 
-    int quantidadePartes = quantidadeTarefas;
+    int quantidadePartes = quantidadeDivisoes;
     int tamanhoPorParte = tamanhoImagem / quantidadePartes;
+
+    for (int y = 0; y < quantidadePartes; y++) 
+    {
+        for (int x = 0; x < quantidadePartes; x++) 
+        {
+            DadosCalculo *argsCalculo = (DadosCalculo *)malloc(sizeof(DadosCalculo));
+            
+            argsCalculo->pontoInicial.x = x * tamanhoPorParte;
+            argsCalculo->pontoInicial.y = y * tamanhoPorParte;
+
+            argsCalculo->pontoFinal.x = (x * tamanhoPorParte) + tamanhoPorParte;
+            argsCalculo->pontoFinal.y = (y * tamanhoPorParte) + tamanhoPorParte;
+
+            argsCalculo->imagem = imagem;
+            argsCalculo->tamanhoImagem = tamanhoImagem;
+
+            fila_push(buffer_tarefas, argsCalculo);
+        }
+    }
 
     struct timeval tempoInicioExecucao, tempoFimExecucao;
     gettimeofday(&tempoInicioExecucao, 0);
 
-    for (int i = 0; i < quantidadePartes; i++) 
-    {
-        struct ArgsCalculo *threadArgs = (struct ArgsCalculo *)malloc(sizeof(struct ArgsCalculo));
-        
-        int inicio = i * tamanhoPorParte;
-        int fim = inicio + tamanhoPorParte;
-
-        threadArgs->xInicial = inicio;
-        threadArgs->xFinal = fim;
-        threadArgs->tamanhoDivisao = quantidadePartes;
-        threadArgs->imagem = imagem;
-        threadArgs->tamanhoImagem = tamanhoImagem;
-
-        fila_push(buffer_tarefas, threadArgs);
-    }
-
     pthread_t idsThreads[qtdThreads];
     for (int i = 0; i < qtdThreads; i++) {
         pthread_t idThread;
-        pthread_create(&idThread, NULL, thread_callback, NULL);
+        pthread_create(&idThread, NULL, thread_produtora, NULL);
         idsThreads[i] = idThread;
 
         printf("Thread %d criada\n", (int)idThread);        
@@ -142,13 +146,13 @@ int main(void)
     printf("\n");
     
     pthread_t consumerThreadId;
-    pthread_create(&consumerThreadId, NULL, consumer, NULL);    
+    pthread_create(&consumerThreadId, NULL, thread_consumidora, NULL);    
     pthread_join(consumerThreadId, NULL);
 
     gettimeofday(&tempoFimExecucao, 0);
     long segundos = tempoFimExecucao.tv_sec - tempoInicioExecucao.tv_sec;
     long milissegundos = tempoFimExecucao.tv_usec - tempoInicioExecucao.tv_usec;
-    double tempoDecorrido = segundos + milissegundos*1e-6;
+    double tempoDecorrido = segundos + milissegundos * 1e-6;
     printf("\nLevou %f segundos para calcular\n", tempoDecorrido);
 
     loop_interface_grafica(tamanhoImagem);

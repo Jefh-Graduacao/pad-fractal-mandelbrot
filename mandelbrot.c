@@ -1,13 +1,12 @@
 #include <stdio.h>
 #include <X11/Xlib.h>
 
-#include "argsCalculo.h"
-
+#include "estruturas.h"
 
 #define MAX_ITER (1 << 15)
 static unsigned int cols[MAX_ITER + 1];
 
-static void inicializar_cores(void)
+static void inicializar_cores()
 {
     int i;
 
@@ -51,28 +50,37 @@ static double ymax = 1.5;
 
 static void * display_double(void *args)
 {
-    struct ArgsCalculo *argsCalculo = (struct ArgsCalculo *)args;
+    struct DadosCalculo *paramsCalculo = (struct DadosCalculo *)args;
 
-    int size = argsCalculo->tamanhoImagem;
+    int size = paramsCalculo->tamanhoImagem;
 
     double xscal = (xmax - xmin) / size;
     double yscal = (ymax - ymin) / size;
 
-    XImage *imagem2 = argsCalculo->imagem;
-    for (int y = 0; y < size; y++)
-    {
-        for (int x = argsCalculo->xInicial; x < argsCalculo->xFinal; x++)
-        {
-            double cr = xmin + x * xscal;
-            double ci = ymin + y * yscal;
+    XImage *imagemX11 = paramsCalculo->imagem;
 
-            unsigned counts = mandel_double(cr, ci);
+    Ponto pontoInicial = paramsCalculo->pontoInicial;
+    Ponto pontoFinal = paramsCalculo->pontoFinal;
+
+    for (int y = pontoInicial.y; y < pontoFinal.y; y++)
+    {
+        for (int x = pontoInicial.x; x < pontoFinal.x; x++)
+        {
+            double c_real = xmin + x * xscal;
+            double c_imaginario = ymin + y * yscal;
+
+            unsigned counts = mandel_double(c_real, c_imaginario);
 
             int indicePixel = x + y * size;
-            ((unsigned *)imagem2->data)[indicePixel] = cols[counts];
+            ((unsigned *)imagemX11->data)[indicePixel] = cols[counts];
         }
     }
 
-    printf("Calculado eixo X (%d-%d) pela thread %d\n", argsCalculo->xInicial, argsCalculo->xFinal, (int)pthread_self());
-    free(argsCalculo);
+    printf(
+        "Calculado intervalo (%d, %d) -> (%d, %d) pela thread %d\n", 
+        paramsCalculo->pontoInicial.x, paramsCalculo->pontoInicial.y,
+        paramsCalculo->pontoFinal.x, paramsCalculo->pontoFinal.y,
+        (int)pthread_self()
+    );
+    free(paramsCalculo);
 }

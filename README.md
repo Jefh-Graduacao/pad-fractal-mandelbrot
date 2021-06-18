@@ -21,3 +21,7 @@ As threads de trabalho são responsáveis por obter uma tarefa do buffer e calcu
 A thread de atualização da tela é responśavel por obter o resultado do cálculo do *buffer do display* e caso haja algum resultado para ser exibido ela atualizará a tela de acordo com as coordenadas especificadas. Caso contrário, esta thread deve ficar em IDLE até que haja algum item no *buffer do display*.
 
 Para que não seja feita uma espera ativa, esta thread faz a espera usando uma variável de condição. Esta variável de condição é sinalizada pelas **threads de trabalho** sempre que um cálculo é finalizado.
+
+# Resultado esperado
+
+![Resultado esperado](./doc/resultado.png)

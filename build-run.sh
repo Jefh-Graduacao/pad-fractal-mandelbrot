@@ -1,0 +1,1 @@
+ gcc program.c -l pthread -l X11 -o out && ./out

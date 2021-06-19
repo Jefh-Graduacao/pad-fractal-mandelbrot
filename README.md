@@ -25,3 +25,12 @@ Para que não seja feita uma espera ativa, esta thread faz a espera usando uma v
 # Resultado esperado
 
 ![Resultado esperado](./doc/resultado.png)
+
+# Referências 
+
+* Material das aulas de Processamento de Alto Desempenho
+* [Algoritmo (sequencial) responsável por calcular o fractal](http://www.cs.nthu.edu.tw/~ychung/homework/para_programming/seq_mandelbrot_c.htm)
+* [Let’s draw the Mandelbrot set!](https://jonisalonen.com/2013/lets-draw-the-mandelbrot-set/)
+* [Wikipedia - Mandelbrot set](https://en.wikipedia.org/wiki/Mandelbrot_set)
+* [Man pages - pthread](https://man7.org/linux/man-pages/man7/pthreads.7.html)
+* [The XLib Manual](https://tronche.com/gui/x/xlib/)

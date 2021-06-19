@@ -66,22 +66,19 @@ void * thread_consumidora()
         }
 
         pthread_mutex_lock(mutex_buffer_display);
-        if (buffer_display->esta_vazia) 
+        while (buffer_display->esta_vazia) 
         {            
             pthread_cond_wait(condicao_buffer_display, mutex_buffer_display);
-            pthread_mutex_unlock(mutex_buffer_display);
-            continue;
         }
 
-        DadosDisplay *result = malloc(sizeof(DadosDisplay));        
+        DadosDisplay *result = malloc(sizeof(DadosDisplay));
         fila_pop(buffer_display, result);
+        pthread_mutex_unlock(mutex_buffer_display);
 
         adicionar_imagem_x11(
             result->pontoInicial.x, result->pontoInicial.y, result->pontoInicial.x, result->pontoInicial.y, 
             (result->pontoFinal.x - result->pontoInicial.x + 1), (result->pontoFinal.y - result->pontoInicial.y + 1)
         );
-
-        pthread_mutex_unlock(mutex_buffer_display);
         
         tarefasRealizas++;
         free(result);
@@ -91,12 +88,11 @@ void * thread_consumidora()
 int main()
 {
     int tamanhoImagem = 1000;
-    int qtdThreads = 100;
+    int qtdThreads = 20;
     int quantidadeDivisoes = 10;
     int quantidadeTarefas = quantidadeDivisoes * quantidadeDivisoes;
 
     inicializar_x11(tamanhoImagem);
-
     inicializar_cores();
 
     buffer_tarefas = inicializar_fila(quantidadeTarefas, sizeof(DadosCalculo));
@@ -104,7 +100,6 @@ int main()
 
     mutex_buffer_tarefas = (pthread_mutex_t *) malloc(sizeof (pthread_mutex_t));
     mutex_buffer_display = (pthread_mutex_t *) malloc(sizeof (pthread_mutex_t));
-
     condicao_buffer_display = (pthread_cond_t *) malloc(sizeof (pthread_cond_t));
 
     pthread_mutex_init(mutex_buffer_tarefas, NULL);
@@ -136,7 +131,8 @@ int main()
     gettimeofday(&tempoInicioExecucao, 0);
 
     pthread_t idsThreads[qtdThreads];
-    for (int i = 0; i < qtdThreads; i++) {
+    for (int i = 0; i < qtdThreads; i++) 
+    {
         pthread_t idThread;
         pthread_create(&idThread, NULL, thread_produtora, NULL);
         idsThreads[i] = idThread;
